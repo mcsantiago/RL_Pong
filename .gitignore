@@ -1,2 +1,5 @@
 .ipynb_checkpoints
 .vscode
+model_output/
+__pycache__/
+__pycache__/dqnagent_keras.cpython-37.pyc
