@@ -1,6 +1,7 @@
 import random
 import numpy as np
 from collections import deque
+from keras import backend as K
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten
 from keras.optimizers import Adam
@@ -9,10 +10,11 @@ from keras.optimizers import Adam
 class DQNAgent:
     ''' Keras implementation of the paper '''
     def __init__(self, state_size, action_size):
+        print(K.tensorflow_backend._get_available_gpus())
         self.state_size = state_size
         self.action_size = action_size
         
-        self.memory = deque(maxlen=40000)
+        self.memory = deque(maxlen=80000)
         
         self.gamma = 0.95
         
@@ -40,10 +42,10 @@ class DQNAgent:
     
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
-        if self.epsilon > self.epsilon_min:
-            self.epsilon -= self.epsilon_decay
         
     def act(self, state):
+        if self.epsilon > self.epsilon_min:
+            self.epsilon -= self.epsilon_decay
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
         act_values = self.model.predict(state)
@@ -57,9 +59,8 @@ class DQNAgent:
             if not done:
                 target = reward + self.gamma * np.amax(self.model.predict(next_state)[0])
             target_f = self.model.predict(state)
-            target_f[0][action] = target
             
-            self.model.fit(state, target_f, epochs=1, verbose=0)
+            self.model.fit(state, target - target_f, epochs=1, verbose=0)
     
     def load(self, name):
         self.model.load_weights(name)

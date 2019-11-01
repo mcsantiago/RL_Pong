@@ -3,6 +3,7 @@ import gym
 import numpy as np
 import os
 
+
 from dqnagent_keras import DQNAgent
 
 def rgb2gray(rgb):
@@ -28,7 +29,7 @@ if __name__ == "__main__":
 
     # Hyperparameters
     batch_size = 32
-    n_episodes = 10000000
+    n_frames = 10000000
     agent = DQNAgent(state_size, action_size)
 
     done = False
@@ -36,14 +37,14 @@ if __name__ == "__main__":
     episode = 0
     max_score = 0
     k = 4 # The paper mentions only registering every kth frame
-    while time < n_episodes:
+    while time < n_frames:
         state = preprocess_frame(env.reset())
 
         player_score = 0
         enemy_score = 0
         
         while not done:
-            #env.render()
+            env.render()
             action = agent.act(state)
             next_state, reward, done, _ = env.step(action)
 
@@ -55,6 +56,8 @@ if __name__ == "__main__":
             if time % k == 0: # only process every kth frame
                 next_state = preprocess_frame(next_state)
                 agent.remember(state, action, reward, next_state, done)
+                if len(agent.memory) > batch_size:
+                    agent.replay(batch_size) # train the agent by replaying the experiences of the episode
                 state = next_state
             time += 1
         episode += 1
@@ -63,12 +66,10 @@ if __name__ == "__main__":
             max_score = player_score
         
         print("frame: {}/{}    enemy_score: {}    player_score: {}    max_score: {}    e: {:.2}" # print the episode's score and agent's epsilon
-        .format(time, n_episodes, enemy_score, player_score, max_score, agent.epsilon))
+        .format(time, n_frames, enemy_score, player_score, max_score, agent.epsilon))
         
         done = False
         
-        if len(agent.memory) > batch_size:
-            agent.replay(batch_size) # train the agent by replaying the experiences of the episode
         
         if episode % 50 == 0: # save weights every 50th episode (game)
             agent.save(output_dir + "weights_" + '{:04d}'.format(episode) + ".hdf5")
