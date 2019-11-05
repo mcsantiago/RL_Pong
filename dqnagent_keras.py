@@ -29,7 +29,7 @@ class DQNAgent:
     def _build_model(self):
         model = Sequential()
     
-        model.add(Conv2D(1, kernel_size=3, activation='relu', input_shape=(80, 80, 1)))
+        model.add(Conv2D(1, kernel_size=3, activation='relu', input_shape=(80, 80, 4)))
         model.add(Conv2D(16, kernel_size=8, strides=4, activation='relu'))
         model.add(Conv2D(32, kernel_size=4, strides=2, activation='relu'))
         model.add(Flatten())

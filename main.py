@@ -38,27 +38,41 @@ if __name__ == "__main__":
     max_score = 0
     k = 4 # The paper mentions only registering every kth frame
     while time < n_frames:
-        state = preprocess_frame(env.reset())
+        env.reset()
 
+        state = None
         player_score = 0
         enemy_score = 0
+        action = 0
         
         while not done:
             env.render()
-            action = agent.act(state)
             next_state, reward, done, _ = env.step(action)
-
+            next_state = preprocess_frame(next_state)
             if reward > 0: 
                 player_score += reward
             else: 
                 enemy_score -= reward
 
-            if time % k == 0: # only process every kth frame
-                next_state = preprocess_frame(next_state)
+            i = 0
+            while i < k - 1 and not done:
+                env.render()
+                next_frame, next_reward, done, _ = env.step(action)
+                next_frame = preprocess_frame(next_frame)
+                next_state = np.append(next_state, next_frame, axis=3)
+                reward += next_reward
+                if next_reward > 0: 
+                    player_score += next_reward
+                else: 
+                    enemy_score -= next_reward
+                i += 1
+
+            if state is not None:
+                action = agent.act(state)
                 agent.remember(state, action, reward, next_state, done)
                 if len(agent.memory) > batch_size:
                     agent.replay(batch_size) # train the agent by replaying the experiences of the episode
-                state = next_state
+            state = next_state
             time += 1
         episode += 1
 
