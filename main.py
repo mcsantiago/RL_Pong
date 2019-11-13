@@ -11,14 +11,21 @@ def rgb2gray(rgb):
     return small_frame
 
 def preprocess_frame(frame):
-    state = rgb2gray(frame)
-    state = state[::2,::2]
-    state = np.expand_dims(state, axis=0)
-    state = np.expand_dims(state, axis=3)
-    state = state[0:1, 25:110, 0:80, 0:1]
-    return state
+    """ Preprocess the frame to 80x80x1 """
+    frame = frame[35:195] # Crop
+    frame= frame[::2,::2, 0] # Downsample    
+    frame = np.expand_dims(frame, axis=0)
+    frame = np.expand_dims(frame, axis=3)
+    frame[frame == 144] = 0 # Erase background (background type 1)
+    frame[frame == 109] = 0 # Erase background (background type 2)
+    frame[frame != 0] = 1   # Everything else
+    return frame
 
 if __name__ == "__main__":
+    # Macros
+    UP_ACTION = 2
+    DOWN_ACTION = 3
+
     env = gym.make('Pong-v0')
     state_size = env.observation_space
     action_size = env.action_space.n
@@ -37,13 +44,13 @@ if __name__ == "__main__":
     episode = 0
     max_score = 0
     k = 4 # The paper mentions only registering every kth frame
-    while time < n_frames:
+    while True:
         env.reset()
 
         state = None
         player_score = 0
         enemy_score = 0
-        action = 0
+        action = UP_ACTION
         
         while not done:
             env.render()
@@ -66,12 +73,11 @@ if __name__ == "__main__":
                 else: 
                     enemy_score -= next_reward
                 i += 1
+                time += 1
 
             if state is not None:
                 action = agent.act(state)
                 agent.remember(state, action, reward, next_state, done)
-                if len(agent.memory) > batch_size:
-                    agent.replay(batch_size) # train the agent by replaying the experiences of the episode
             state = next_state
             time += 1
         episode += 1
@@ -79,11 +85,14 @@ if __name__ == "__main__":
         if player_score > max_score: 
             max_score = player_score
         
-        print("frame: {}/{}    enemy_score: {}    player_score: {}    max_score: {}    e: {:.2}" # print the episode's score and agent's epsilon
-        .format(time, n_frames, enemy_score, player_score, max_score, agent.epsilon))
+        print("episode: {}    enemy_score: {}    player_score: {}    high_score: {}" # print the episode's score and agent's epsilon
+        .format(episode, enemy_score, player_score, max_score))
         
         done = False
         
+        agent.replay(batch_size) # train the agent by replaying the experiences of the episode
         
-        if episode % 50 == 0: # save weights every 50th episode (game)
+        agent.forget() # clear memory vector
+
+        if episode % 100 == 0: # save weights every 50th episode (game)
             agent.save(output_dir + "weights_" + '{:04d}'.format(episode) + ".hdf5")
