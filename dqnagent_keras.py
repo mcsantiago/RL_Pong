@@ -5,6 +5,8 @@ from keras import backend as K
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten
 from keras.optimizers import Adam
+from keras.callbacks import TensorBoard
+from time import time
 
 # Macros
 UP_ACTION = 2
@@ -38,6 +40,8 @@ class DQNAgent:
         self.learning_rate = 0.001
         
         self.model = self._build_model()
+
+        self.tensorboard = TensorBoard(log_dir="logs\\{}".format(time()))
         
         if weight_file is not None:
             print("Loading weights: {}", weight_file)
@@ -46,19 +50,20 @@ class DQNAgent:
     def _build_model(self):
         model = Sequential()
     
-        model.add(Conv2D(1, kernel_size=3, activation='relu', input_shape=(80, 80, 4)))
-        model.add(Conv2D(16, kernel_size=8, strides=4, activation='relu'))
-        model.add(Conv2D(32, kernel_size=4, strides=2, activation='relu'))
-        model.add(Flatten())
-        model.add(Dense(256, activation='relu', kernel_initializer='glorot_uniform'))
-        model.add(Dense(1, activation='sigmoid', kernel_initializer='RandomNormal'))
+        # model.add(Conv2D(1, kernel_size=3, activation='relu', input_shape=(80, 80, 4)))
+        # model.add(Conv2D(16, kernel_size=8, strides=4, activation='relu'))
+        # model.add(Conv2D(32, kernel_size=4, strides=2, activation='relu'))
+        # model.add(Flatten())
+        model.add(Dense(units=200, input_dim=6400, activation='relu', kernel_initializer='glorot_uniform'))
+        #model.add(Dense(256, activation='sigmoid', kernel_initializer='glorot_uniform'))
+        model.add(Dense(units=1, activation='sigmoid', kernel_initializer='RandomNormal'))
         
         model.compile(loss='binary_crossentropy', optimizer=Adam(lr=self.learning_rate), metrics=['accuracy'])
         
         return model
     
-    def remember(self, state, action, reward, next_state, done):
-        self.memory.append((state, action, reward, next_state, done))
+    def remember(self, state, action, reward, done):
+        self.memory.append((state, action, reward, done))
 
     def forget(self):
         self.memory.clear()
@@ -68,16 +73,11 @@ class DQNAgent:
         return UP_ACTION if np.random.uniform() < prob else DOWN_ACTION
     
     def replay(self, batch_size):
-        x_train = []
-        y_train = []
+        x_train = [i[0] for i in self.memory]
+        y_train = [1 if i[1] == UP_ACTION else 0 for i in self.memory]
         d_reward = discount_rewards([t[2] for t in self.memory], self.gamma)
-        i = 0
-        for state, action, reward, next_state, done in self.memory:
-            x_train.append(state)
-            y_train.append(1 if action == UP_ACTION else 0)
-            i += 1
 
-        self.model.fit(x=np.vstack(x_train), y=np.vstack(y_train), epochs=1, verbose=1, sample_weight=d_reward)
+        self.model.fit(x=np.vstack(x_train), y=np.vstack(y_train), epochs=1, verbose=1, sample_weight=d_reward, callbacks=[self.tensorboard])
     
     def load(self, name):
         self.model.load_weights(name)
