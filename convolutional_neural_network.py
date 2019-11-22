@@ -1,5 +1,5 @@
 #####################################################################################################################
-# NeuralNetwork code from Assignment 2 to be adapted for Convolutional Neural Network
+# Convolutional Neural Network custom impl
 #####################################################################################################################
 
 
@@ -7,47 +7,28 @@ import numpy as np
 import sys
 
 class CNN_Impl:
-    def __init__(self, train, header = None, containsHeader = False, h1 = 4, h2 = 4, activation="sigmoid"):
+    def __init__(self, input_shape, output_layer_size):
         """
         Initializes the neural network. 
         """
         #np.random.seed(1)
-        # train refers to the training dataset
-        # test refers to the testing dataset
-        # h1 and h2 represent the number of nodes in 1st and 2nd hidden layers
+        self.input_shape = input_shape
+
+        # Conv2D(filters=16, kernel_size=8, strides=4, activation='relu', input_shape)
+        self.filters1 = np.random.rand(8, 8, 4) # TODO: make 16 of these
+        # Conv2D(filters=32, kernel_size=4, strides=4, activation='relu')
+        self.filters2 = np.random.rand(4, 4, 4) # TODO: make 32 of these
 
 
-        self.activation = activation
-        ''' TODO: Rewrite constructor to pass in expected dimensions as tuple '''
-        #raw_input = pd.read_csv(train, header=header)
-        #train_dataset = self.preprocess(raw_input)
-        #ncols = len(train_dataset.columns)
-        #nrows = len(train_dataset.index)
-        #self.X = train_dataset.iloc[:, 0:(ncols -1)].values.reshape(nrows, ncols-1)
-        #self.y = train_dataset.iloc[:, (ncols-1)].values.reshape(nrows, 1)
-        #
-        # Find number of input and output layers from the dataset
-        #
-        input_layer_size = len(self.X[0])
-        if not isinstance(self.y[0], np.ndarray):
-            output_layer_size = 1
-        else:
-            output_layer_size = len(self.y[0])
-
-        # assign random weights to matrices in network
-        # number of weights connecting layers = (no. of nodes in previous layer) x (no. of nodes in following layer)
-        ''' TODO: Convert this code into the neural network proposed in dqnagent_keras.py ''' 
-        ''' TODO: Something to think about, what if we wanted to make a larger network? Do we keep hardcoding, or make it dynamic? '''
-        #self.w01 = 2 * np.random.random((input_layer_size, h1)) - 1
-        #self.X01 = self.X
-        #self.delta01 = np.zeros((input_layer_size, h1))
-        #self.w12 = 2 * np.random.random((h1, h2)) - 1
-        #self.X12 = np.zeros((len(self.X), h1))
-        #self.delta12 = np.zeros((h1, h2))
-        #self.w23 = 2 * np.random.random((h2, output_layer_size)) - 1
-        #self.X23 = np.zeros((len(self.X), h2))
-        #self.delta23 = np.zeros((h2, output_layer_size))
-        #self.deltaOut = np.zeros((output_layer_size, 1))
+        # Dense(units=256, activation='relu', kernel_initializer='glorot_uniform')
+        # TODO: Figure out below dimensions
+        self.X12 = np.zeros((1, 1)) # 
+        self.w12 = 2 * np.random.random((18496, 256)) - 1 
+        self.delta12 = np.zeros((1, 1))
+        self.w23 = 2 * np.random.random((256, 1)) - 1
+        self.X23 = np.zeros((1, 1))
+        self.delta23 = np.zeros((256, output_layer_size))
+        self.deltaOut = np.zeros((output_layer_size, 1))
 
     def __activation(self, x):
         if self.activation.lower() == "sigmoid":
@@ -89,6 +70,73 @@ class CNN_Impl:
     def __tanh_derivative(self, x):
         return 1 - np.power(x, 2) # assumes that x has already been through the tanh function
 
+    def create_feature_maps(self, img, filters):
+        """ 
+        Returns the feature maps from provided filters and input
+        """ 
+        # Check if number of image channels matches the filter depth
+        if len(img.shape) > 2 or len(filters.shape) > 3: 
+            if img.shape[-1] != filters.shape[-1]:
+                raise Exception("Number of channels in image do not match filter")
+
+        # Filter must be square
+        if filters.shape[1] != filters.shape[2]:
+            raise Exception("Filter must be a square matrix")
+
+        feature_maps = numpy.zeros((img.shape[0]-filters.shape[1]+1, 
+                                    img.shape[1]-filters.shape[2]+1, 
+                                    filters.shape[0]))
+
+        # Convolving the image by the filters
+        for i in range(conv_filter.shape[0]):
+            current_filter = filters[i, :]
+            if len(current_filter.shape) > 2:
+                # Feature map array
+                conv_map = convolve(img[:, :, 0], current_filter[:, :, 0])
+
+                for ch in range(1, current_filter.shape[-1]): 
+                    conv_map = conv_map + convolve(img[:, :, ch],
+                                                   current_filter[:, :, ch])
+            else:
+                conv_map = convolve(img, current_filter)
+
+            feature_maps[:, :, i] = conv_map
+        
+        return feature_maps
+
+    def convolve(self, img, conv_filter):
+        filter_size = conv_filter.shape[1]
+        conv_map = np.zeros((img.shape))
+        #Looping through the image to apply the convolution operation.
+        for r in np.uint16(np.arange(filter_size/2.0, img.shape[0]-filter_size/2.0+1)):
+            for c in np.uint16(np.arange(filter_size/2.0, img.shape[1]-filter_size/2.0+1)):
+                curr_region = img[r-np.uint16(np.floor(filter_size/2.0)):r+np.uint16(np.ceil(filter_size/2.0)), 
+                                c-np.uint16(np.floor(filter_size/2.0)):c+np.uint16(np.ceil(filter_size/2.0))]
+                #Element-wise multipliplication between the current region and the filter.
+                curr_result = curr_region * conv_filter
+                conv_sum = np.sum(curr_result) #Summing the result of multiplication.
+                conv_map[r, c] = conv_sum #Saving the summation in the convolution layer feature map.
+                
+        #Clipping the outliers of the result matrix.
+        final_result = conv_map[np.uint16(filter_size/2.0):conv_map.shape[0]-np.uint16(filter_size/2.0), 
+                            np.uint16(filter_size/2.0):conv_map.shape[1]-np.uint16(filter_size/2.0)]
+        return final_result
+
+    def pooling(self, feature_map, size=2, stride=2):
+        #Preparing the output of the pooling operation.
+        pool_out = np.zeros((np.uint16((feature_map.shape[0]-size+1)/stride),
+                                np.uint16((feature_map.shape[1]-size+1)/stride),
+                                feature_map.shape[-1]))
+        for map_num in range(feature_map.shape[-1]):
+            r2 = 0
+            for r in np.arange(0,feature_map.shape[0]-size-1, stride):
+                c2 = 0
+                for c in np.arange(0, feature_map.shape[1]-size-1, stride):
+                    pool_out[r2, c2, map_num] = np.max([feature_map[r:r+size,  c:c+size, map_num]])
+                    c2 = c2 + 1
+                r2 = r2 +1
+        return pool_out
+
     # Below is the training function
     def train(self, max_iterations = 100000, learning_rate = 0.005):
         for iteration in range(max_iterations):
@@ -109,25 +157,34 @@ class CNN_Impl:
         print(self.w12)
         print(self.w23)
 
-    def fit(self, state, target_f, epochs=1, verbose=0):
+    def fit(self, x, y, epochs=1, sample_weight=None):
         ''' 
         TODO: Implement this function.. I think it's a training function of sorts.
         Check Keras docs to be sure of functionality.
         '''
 
+    def predict(self, img):
+        if img.shape != self.input_shape:
+            print("")
+            raise Exception("Image {} does not match expected input shape {}".format(img.shape, self.input_shape))
+        return self.forward_pass(img)
 
-    def forward_pass(self):
-        ''' 
-        TODO: Current implementation applies activation function across all layers.. 
-        But in keras implementation, some layers use different activations 
-        '''
+    def forward_pass(self, img):
         # pass our inputs through our neural network
-        in1 = np.dot(self.X, self.w01 )
-        self.X12 = self.__activation(in1)
-        in2 = np.dot(self.X12, self.w12)
-        self.X23 = self.__activation(in2)
+        self.l1_feature_map = self.convolve(img, self.filters1)
+        self.l1_feature_map_relu = self.__relu(self.l1_feature_map)
+
+        self.l2_feature_map = self.convolve(self.l1_feature_map_relu, self.filters2)
+        self.l2_feature_map_relu = self.__relu(self.l2_feature_map)
+
+        self.l2_feature_map_flat = self.l2_feature_map_relu.flatten()
+        self.l2_feature_map_flat = np.expand_dims(self.l2_feature_map_flat, axis=1)
+
+        in2 = np.dot(np.transpose(self.l2_feature_map_flat), self.w12)
+        self.X23 = self.__relu(in2)
+
         in3 = np.dot(self.X23, self.w23)
-        out = self.__activation(in3)
+        out = self.__sigmoid(in3)
         return out
 
     def backward_pass(self, out):
@@ -159,9 +216,6 @@ class CNN_Impl:
         '''
         delta_hidden_layer1 = (self.delta23.dot(self.w12.T)) * (self.__activation_derivative(self.X12))
         self.delta12 = delta_hidden_layer1
-
-    def predict(self, test, header = None):
-        ''' TODO: Forward pass through the network and return output vector '''
 
 
 if __name__ == "__main__":

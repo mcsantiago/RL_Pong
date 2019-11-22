@@ -36,8 +36,12 @@ class DQNAgent:
         
         self.memory = deque(maxlen=80000)
         
+        self.epsilon = 1.0
+        self.epsilon_decay = 0.0000009
+        self.epsilon_min = 0.1
+
         self.gamma = 0.99
-        self.learning_rate = 0.001
+        self.learning_rate = 0.0001
         
         self.model = self._build_model()
 
@@ -50,15 +54,13 @@ class DQNAgent:
     def _build_model(self):
         model = Sequential()
     
-        # model.add(Conv2D(1, kernel_size=3, activation='relu', input_shape=(80, 80, 4)))
-        # model.add(Conv2D(16, kernel_size=8, strides=4, activation='relu'))
-        # model.add(Conv2D(32, kernel_size=4, strides=2, activation='relu'))
-        # model.add(Flatten())
-        model.add(Dense(units=200, input_dim=6400, activation='relu', kernel_initializer='glorot_uniform'))
-        #model.add(Dense(256, activation='sigmoid', kernel_initializer='glorot_uniform'))
+        model.add(Conv2D(filters=16, kernel_size=8, strides=4, activation='relu', input_shape=(80, 80, 4)))
+        model.add(Conv2D(filters=32, kernel_size=4, strides=2, activation='relu'))
+        model.add(Flatten())
+        model.add(Dense(units=256, activation='relu', kernel_initializer='glorot_uniform'))
         model.add(Dense(units=1, activation='sigmoid', kernel_initializer='RandomNormal'))
         
-        model.compile(loss='binary_crossentropy', optimizer=Adam(lr=self.learning_rate), metrics=['accuracy'])
+        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate), metrics=['accuracy'])
         
         return model
     
@@ -69,15 +71,20 @@ class DQNAgent:
         self.memory.clear()
         
     def act(self, state):
+        if self.epsilon > self.epsilon_min:
+            self.epsilon -= self.epsilon_decay
+        if np.random.rand() <= self.epsilon:
+            return UP_ACTION if np.random.uniform() < 0.5 else DOWN_ACTION
+
         prob = self.model.predict(state)
         return UP_ACTION if np.random.uniform() < prob else DOWN_ACTION
     
-    def replay(self, batch_size):
+    def replay(self, epochs):
         x_train = [i[0] for i in self.memory]
         y_train = [1 if i[1] == UP_ACTION else 0 for i in self.memory]
         d_reward = discount_rewards([t[2] for t in self.memory], self.gamma)
 
-        self.model.fit(x=np.vstack(x_train), y=np.vstack(y_train), epochs=1, verbose=1, sample_weight=d_reward, callbacks=[self.tensorboard])
+        self.model.fit(x=np.vstack(x_train), y=np.vstack(y_train), epochs=epochs, verbose=1, sample_weight=d_reward, callbacks=[self.tensorboard])
     
     def load(self, name):
         self.model.load_weights(name)
