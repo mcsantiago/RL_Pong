@@ -8,22 +8,6 @@ from scipy import signal
 import sys
 import math
 
-def convertFlatToMatrix(flat):
-    """ Auxillary function to convert flattened array back to matrix form """
-    shape = flat.shape[1]
-    matrix_shape = int(math.sqrt(shape))
-    matrix = []
-    i = 0
-    for r in range(matrix_shape):
-        row = []
-        for c in range(matrix_shape):
-            row.append(flat[0][i])
-            i+=1
-        matrix.append(row)
-    matrix = np.matrix(matrix)
-    matrix = np.expand_dims(matrix, axis=2)
-    return matrix
-
 def convolve(input, filter, strides=1):
     """ Convolution operation """
     if input.shape[2] != filter.shape[2]:
@@ -59,11 +43,13 @@ class CNN_Impl:
         self.filters12 = []
         for i in range(16):
             self.filters12.append(np.random.rand(8, 8, 4))
+        self.filters12 = np.array(self.filters12)
 
         # Conv2D(filters=32, kernel_size=4, strides=4, activation='relu')
         self.filters23 = []
         for i in range(32):
             self.filters23.append(np.random.rand(4, 4, 1))
+        self.filters23 = np.array(self.filters23)
 
         # Dense(units=256, activation='relu', kernel_initializer='glorot_uniform')
         self.w34 = 2 * np.random.random((25088, 256)) - 1 
@@ -95,22 +81,23 @@ class CNN_Impl:
 
                 # Backpropagation
                 delta5 = self.compute_output_delta(y[i], out)
+                print(delta5)
                 delta45 = self.compute_hidden_layer4_delta(delta5)
                 delta34 = self.compute_hidden_layer3_delta(delta45)
 
-                delta34_matrix = convertFlatToMatrix(delta34)
+                delta34_matrix = np.reshape(delta34, (512, 7, 7, 1))
                 delta23 = self.compute_hidden_layer2_delta(delta34_matrix)
-                delta12 = self.compute_hidden_layer1_delta(delta23)
+                # delta12 = self.compute_hidden_layer1_delta(delta23)
 
-                update_layer4 = learning_rate * self.X45.T.dot(delta5) # (256, 1) x (1, 1)
-                update_layer3 = learning_rate * self.l2_feature_map_flat.T.dot(delta45) # (4900, 1) x (1, 256)
-                update_layer2 = learning_rate * self.l2_feature_map_relu.T.dot(delta34)
-                update_layer1 = learning_rate * self.l1_feature_map_relu.T.dot(delta12)
+                # update_layer4 = learning_rate * self.X45.T.dot(delta5) # (256, 1) x (1, 1)
+                # update_layer3 = learning_rate * self.l2_feature_map_flat.T.dot(delta45) # (4900, 1) x (1, 256)
+                # update_layer2 = learning_rate * self.l2_feature_map_relu.T.dot(delta34)
+                # update_layer1 = learning_rate * self.l1_feature_map_relu.T.dot(delta12)
 
-                self.w45 += update_layer4
-                self.w34 += update_layer3
-                self.filters23 += update_layer2
-                self.filters12 += update_layer1
+                # self.w45 += update_layer4
+                # self.w34 += update_layer3
+                # self.filters23 += update_layer2
+                # self.filters12 += update_layer1
 
         print("After " + str(epochs) + " iterations, the total error is " + str(np.sum(error)))
 
@@ -126,14 +113,14 @@ class CNN_Impl:
         for filter in self.filters12: 
             self.l1_feature_map.append(convolve(img, filter, strides=4))
         self.l1_feature_map_relu = self.__relu(self.l1_feature_map)
-        self.l1_feature_map_relu = self.l1_feature_map_relu.T # Transpose (1, 18, 18, 16)
+        self.l1_feature_map_relu = self.l1_feature_map_relu # Transpose (1, 18, 18, 16)
 
         self.l2_feature_map = []
         for filter in self.filters23:
-            for feature_map in self.l1_feature_map:
+            for feature_map in self.l1_feature_map_relu:
                 self.l2_feature_map.append(convolve(feature_map, filter, strides=2))
         self.l2_feature_map_relu = self.__relu(self.l2_feature_map)
-        self.l2_feature_map_relu = self.l2_feature_map_relu.T # (1, 7, 7, 512)
+        self.l2_feature_map_relu = self.l2_feature_map_relu # (1, 7, 7, 512)
 
         self.l2_feature_map_flat = self.l2_feature_map_relu.flatten() 
         self.l2_feature_map_flat = np.expand_dims(self.l2_feature_map_flat, axis=1).T # (1, 25088)
@@ -155,9 +142,14 @@ class CNN_Impl:
         return (delta45.dot(self.w34.T)) * (self.__relu_derivative(self.l2_feature_map_flat))
 
     def compute_hidden_layer2_delta(self, delta34):
-        print('delta34 shape: {}'.format(delta34.shape))
-        print('filters23 shape: {}'.format(self.filters23.shape))
-        return signal.convolve(np.rot90(np.rot90(delta34)), self.filters23, 'valid')
+        print('delta34 shape: {}'.format(delta34.shape)) # (512, 7, 7, 1)
+        print('filters23 shape: {}'.format(self.filters23.shape)) # (32, 4, 4, 1)
+        dw = [] # expecting (32, 4, 4, 1)
+        dx = [] # expecting (16, 18, 18, 1)
+
+        return dw, dx
+            
+        # return signal.convolve(np.rot90(np.rot90(delta34)), self.filters23, 'valid')
 
     def compute_hidden_layer1_delta(self, delta23):
         print('delta23 shape: {}'.format(delta23.shape))
@@ -169,6 +161,6 @@ if __name__ == '__main__':
     img = np.random.rand(80, 80, 4)
     out = model.predict(img)
 
-    model.fit([img], out)
+    model.fit([img], [0.5])
 
     print('output {}'.format(out))
