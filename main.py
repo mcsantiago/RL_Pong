@@ -61,12 +61,9 @@ if __name__ == "__main__":
         
         while not done:
             env.render()
-            state, reward, done, _ = env.step(action)
-            state= preprocess_frame(state)
-            # state = state - prev_state if prev_state is not None else np.zeros(6400)
-            # prev_state = state
-            # state = np.expand_dims(state, axis=1).T
-            
+            next_state, reward, done, _ = env.step(action)
+            next_state= preprocess_frame(next_state)
+
             if reward > 0: player_score += reward
             else: enemy_score -= reward
 
@@ -75,16 +72,17 @@ if __name__ == "__main__":
                 env.render()
                 next_frame, next_reward, done, _ = env.step(action)
                 next_frame = preprocess_frame(next_frame)
-                state = np.append(state, next_frame, axis=2)
-                # state = state + next_frame
+                next_state = np.append(next_state, next_frame, axis=2)
                 reward += next_reward
                 if next_reward > 0: player_score += next_reward
                 else: enemy_score -= next_reward
                 i += 1
 
-            if state.shape[2] == 4: # exclude incomplete states
+            if state is not None: # exclude incomplete states
                 action = agent.act(state)
-                agent.remember(state, action, reward, done)
+                agent.remember(state, action, reward, next_state, done)
+
+            state = next_state
         episode += 1
 
         if player_score > max_score: 
@@ -94,8 +92,7 @@ if __name__ == "__main__":
         print("episode: {}    enemy_score: {}    player_score: {}    high_score: {}    epsilon: {}" # print the episode's score and agent's epsilon
         .format(episode, enemy_score, player_score, max_score, agent.epsilon))
         
-        # agent.replay((int)(player_score + 1)) # train the agent by replaying the experiences of the episode
-        agent.forget() # clear memory vector
+        agent.replay(batch_size) # train the agent by replaying the experiences of the episode
 
         if episode % 100 == 0: # save weights every 50th episode (game)
             agent.save(output_dir + "weights_" + '{:04d}'.format(episode) + ".hdf5")
