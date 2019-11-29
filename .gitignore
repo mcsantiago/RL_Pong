@@ -5,3 +5,4 @@ logs/
 videos/
 __pycache__/
 __pycache__/dqnagent_keras.cpython-37.pyc
+specs.csv

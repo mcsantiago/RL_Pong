@@ -3,14 +3,11 @@ import numpy as np
 from collections import deque
 from neural_network import NeuralNetwork 
 
-# Macros
-UP_ACTION = 2
-DOWN_ACTION = 3
-
 # reward discount used by Karpathy (cf. https://gist.github.com/karpathy/a4166c7fe253700972fcbc77e4ea32c5)
 def discount_rewards(r, gamma):
     """ take 1D float array of rewards and compute discounted reward """
     r = np.array(r)
+    print(r)
     discounted_r = np.zeros_like(r)
     running_add = 0
     # we go from last reward to first one so we don't have to do exponentiations
@@ -58,20 +55,24 @@ class DQNAgent:
     
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
+        # rewards = [x[2] for x in minibatch] 
+        # d_rewards = discount_rewards(rewards, self.gamma)
+        # print('d_rewards {}'.format(d_rewards))
 
         x_train=[]
         y_train=[]
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:
-                target = reward + self.gamma * self.model.predict(next_state)
+                target = reward + self.gamma * np.argmax(self.model.predict(next_state)[0])
             target_f = self.model.predict(state)
-            target_f[action] = target
+            target_f[0][action] = target
             x_train.append(state)
             y_train.append(target)
 
         error = self.model.fit(x=x_train, y=y_train, epochs=1, sample_weight=None)
-        
+        return error
+
     
     def load(self, name):
         ''' TODO: Load model weights from some input file '''

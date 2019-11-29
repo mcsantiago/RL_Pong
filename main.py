@@ -4,6 +4,9 @@ from gym import wrappers
 import numpy as np
 import os
 from time import time
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib import style
 
 
 # from dqnagent_keras import DQNAgent
@@ -47,6 +50,8 @@ if __name__ == "__main__":
     max_score = 0
     k = 4 # The paper mentions only registering every kth frame
 
+    f = open("specs.csv", "w+")
+
     while True:
         state = preprocess_frame(env.reset())
 
@@ -66,7 +71,6 @@ if __name__ == "__main__":
             agent.remember(state, action, reward, next_state, done)
             state = next_state
 
-        episode += 1
 
         if player_score > max_score: 
             max_score = player_score
@@ -75,7 +79,11 @@ if __name__ == "__main__":
         print("episode: {}    enemy_score: {}    player_score: {}    high_score: {}    epsilon: {}" # print the episode's score and agent's epsilon
         .format(episode, enemy_score, player_score, max_score, agent.epsilon))
         
-        agent.replay(batch_size) # train the agent by replaying the experiences of the episode
+        error = agent.replay(batch_size) # train the agent by replaying the experiences of the episode
+        f.write("{}, {}, {}, {}, {}".format(episode, error, player_score, max_score, agent.epsilon))
+        episode += 1
 
         if episode % 100 == 0: # save weights every 50th episode (game)
             agent.save(output_dir + "weights_" + '{:04d}'.format(episode) + ".hdf5")
+
+    f.close()
