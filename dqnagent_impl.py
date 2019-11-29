@@ -1,7 +1,7 @@
 import random
 import numpy as np
 from collections import deque
-from convolutional_neural_network import CNN_Impl
+from neural_network import NeuralNetwork 
 
 # Macros
 UP_ACTION = 2
@@ -42,7 +42,7 @@ class DQNAgent:
         print(self.model)
         
     def _build_model(self):
-        model = CNN_Impl((80, 80, 4), 1)
+        model = NeuralNetwork((6400, 1), self.action_size)
         return model
     
     def remember(self, state, action, reward, next_state, done):
@@ -52,9 +52,9 @@ class DQNAgent:
         if self.epsilon > self.epsilon_min:
             self.epsilon -= self.epsilon_decay
         if np.random.random() <= self.epsilon:
-            return UP_ACTION if np.random.uniform() < 0.5 else DOWN_ACTION
-        prob = self.model.predict(state)
-        return UP_ACTION if np.random.uniform() < prob else DOWN_ACTION
+            return random.randrange(self.action_size)
+        act_values = self.model.predict(state)
+        return np.argmax(act_values)
     
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)

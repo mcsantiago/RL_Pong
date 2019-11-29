@@ -21,14 +21,10 @@ def preprocess_frame(frame):
     frame[frame == 144] = 0 # Erase background (background type 1)
     frame[frame == 109] = 0 # Erase background (background type 2)
     frame[frame != 0] = 1   # Everything else
-    return frame
+    return frame.flatten()
     # return frame.astype(np.float).ravel()
 
 if __name__ == "__main__":
-    # Macros
-    UP_ACTION = 2
-    DOWN_ACTION = 3
-
     env = gym.make('Pong-v0')
     # env = wrappers.Monitor(env, './videos/' + str(time()) + '/')
     state_size = env.observation_space
@@ -56,33 +52,23 @@ if __name__ == "__main__":
         prev_state = None
         player_score = 0
         enemy_score = 0
-        action = UP_ACTION
+        action = 2
         done = False
         
         while not done:
             env.render()
+            state, reward, done, _ = env.step(action)
+            state= preprocess_frame(state)
             next_state, reward, done, _ = env.step(action)
             next_state= preprocess_frame(next_state)
+            state = np.expand_dims(state, axis=1)
+            next_state = np.expand_dims(next_state, axis=1)
 
             if reward > 0: player_score += reward
             else: enemy_score -= reward
 
-            i = 0
-            while i < k - 1 and not done:
-                env.render()
-                next_frame, next_reward, done, _ = env.step(action)
-                next_frame = preprocess_frame(next_frame)
-                next_state = np.append(next_state, next_frame, axis=2)
-                reward += next_reward
-                if next_reward > 0: player_score += next_reward
-                else: enemy_score -= next_reward
-                i += 1
-
-            if state is not None: # exclude incomplete states
-                action = agent.act(state)
-                agent.remember(state, action, reward, next_state, done)
-
-            state = next_state
+            action = agent.act(state)
+            agent.remember(state, action, reward, next_state, done)
         episode += 1
 
         if player_score > max_score: 
