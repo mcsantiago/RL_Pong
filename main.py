@@ -21,8 +21,10 @@ def preprocess_frame(frame):
     frame[frame == 144] = 0 # Erase background (background type 1)
     frame[frame == 109] = 0 # Erase background (background type 2)
     frame[frame != 0] = 1   # Everything else
-    return frame.flatten()
+    frame = frame.flatten()
+    frame = np.expand_dims(frame, axis=1)
     # return frame.astype(np.float).ravel()
+    return frame
 
 if __name__ == "__main__":
     env = gym.make('Pong-v0')
@@ -46,29 +48,24 @@ if __name__ == "__main__":
     k = 4 # The paper mentions only registering every kth frame
 
     while True:
-        env.reset()
+        state = preprocess_frame(env.reset())
 
-        state = None
-        prev_state = None
         player_score = 0
         enemy_score = 0
-        action = 2
         done = False
         
         while not done:
             env.render()
-            state, reward, done, _ = env.step(action)
-            state= preprocess_frame(state)
+            action = agent.act(state)
             next_state, reward, done, _ = env.step(action)
             next_state= preprocess_frame(next_state)
-            state = np.expand_dims(state, axis=1)
-            next_state = np.expand_dims(next_state, axis=1)
 
             if reward > 0: player_score += reward
             else: enemy_score -= reward
 
-            action = agent.act(state)
             agent.remember(state, action, reward, next_state, done)
+            state = next_state
+
         episode += 1
 
         if player_score > max_score: 

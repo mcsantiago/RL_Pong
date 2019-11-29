@@ -65,11 +65,13 @@ class DQNAgent:
             target = reward
             if not done:
                 target = reward + self.gamma * self.model.predict(next_state)
-            
+            target_f = self.model.predict(state)
+            target_f[action] = target
             x_train.append(state)
             y_train.append(target)
 
-        self.model.fit(x=x_train, y=y_train, epochs=1, sample_weight=None)
+        error = self.model.fit(x=x_train, y=y_train, epochs=1, sample_weight=None)
+        
     
     def load(self, name):
         ''' TODO: Load model weights from some input file '''
