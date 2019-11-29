@@ -17,8 +17,8 @@ class NeuralNetwork:
         #np.random.seed(1)
         self.input_shape = input_shape
 
-        self.w12 = 2 - np.random.random((6400, 256))
-        self.w23 = 2 - np.random.random((256, output_layer_size))
+        self.w12 = 2 - np.random.random((6400, 256)) - 1
+        self.w23 = 2 - np.random.random((256, output_layer_size)) - 1
 
 
     def __sigmoid(self, x):
@@ -74,15 +74,15 @@ class NeuralNetwork:
         # pass our inputs through our neural network
         self.x01 = img
         self.x12 = self.__relu(np.dot(self.x01.T, self.w12))
-        self.x23 = self.__sigmoid(np.dot(self.x12, self.w23))
+        self.x23 = self.__linear(np.dot(self.x12, self.w23))
         return self.x23
 
     def compute_output_delta(self, y):
-        dx = (self.x23 - y) * (self.__sigmoid_derivative(self.x23))
+        dx = (self.x23 - y) * (self.__relu_derivative(self.x23))
         return dx
 
     def compute_hidden_layer1_delta(self, dCost):
-        dx = dCost.dot(self.w23.T) * (self.__relu_derivative(self.x12))
+        dx = dCost.dot(self.w23.T) * (self.__linear_derivative(self.x12))
         return dx
 
 if __name__ == '__main__':
