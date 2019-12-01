@@ -81,7 +81,6 @@ if __name__ == "__main__":
         .format(episode, enemy_score, player_score, max_score, agent.epsilon))
         
         error = agent.replay(batch_size) # train the agent by replaying the experiences of the episode
-        agent.forget()
 
         f = open("specs.csv", "a")
         f.write("\n{}, {}, {}, {}, {}".format(episode, error, player_score, max_score, agent.epsilon))
