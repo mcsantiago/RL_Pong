@@ -4,9 +4,7 @@ from gym import wrappers
 import numpy as np
 import os
 from time import time
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib import style
+
 
 
 # from dqnagent_keras import DQNAgent
