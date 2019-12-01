@@ -8,6 +8,27 @@ from scipy import signal
 import sys
 import math
 
+# Print iterations progress
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = printEnd)
+    # Print New Line on Complete
+    if iteration == total: 
+        print()
 
 class NeuralNetwork:
     def __init__(self, input_shape, output_layer_size):
@@ -17,11 +38,10 @@ class NeuralNetwork:
         #np.random.seed(1)
         self.input_shape = input_shape
 
-        self.w12 = 2 - np.random.random((6400, 3200)) - 1.5
-        self.w23 = 2 - np.random.random((3200, 2048)) - 1.5
-        self.w34 = 2 - np.random.random((2048, 1024)) - 1.5
-        self.w45 = 2 - np.random.random((1024, 512)) - 1.5
-        self.w56 = 2 - np.random.random((512, output_layer_size)) - 1.5
+        self.w12 = 2 - np.random.random((6400, 2048)) - 1.5
+        self.w23 = 2 - np.random.random((2048, 1024)) - 1.5
+        self.w34 = 2 - np.random.random((1024, 512)) - 1.5
+        self.w45 = 2 - np.random.random((512, output_layer_size)) - 1.5
 
 
     def __sigmoid(self, x):
@@ -56,34 +76,32 @@ class NeuralNetwork:
             raise Exception('Length of X does not match Y')
 
         for iteration in range(epochs):
+            printProgressBar(0, len(x), prefix = 'Progress:', suffix = 'Complete', length = 50)
             for i in range(len(x)):
                 out = self.forward_pass(x[i])
                 error = 0.5 * np.power((out - y[i]), 2)
                 # Backpropagation
                 if (clip is None):
-                    dOut56 = (self.x56 - y[i]) * (self.__linear_derivative(self.x56))
-                    dOut45 = dOut56.dot(self.w56.T) * (self.__tanh_derivative(self.x45))
+                    dOut45 = (self.x45 - y[i]) * (self.__linear_derivative(self.x45))
                     dOut34 = dOut45.dot(self.w45.T) * (self.__tanh_derivative(self.x34))
                     dOut23 = dOut34.dot(self.w34.T) * (self.__tanh_derivative(self.x23))
                     dOut12 = dOut23.dot(self.w23.T) * (self.__relu_derivative(self.x12))
                 else:
-                    dOut56 = np.clip((self.x56 - y[i])      * (self.__linear_derivative(self.x56)), None, clip)
-                    dOut45 = np.clip(dOut56.dot(self.w56.T) * (self.__tanh_derivative(self.x45)),   None, clip)
+                    dOut45 = np.clip((self.x45 - y[i])      * (self.__linear_derivative(self.x45)), None, clip)
                     dOut34 = np.clip(dOut45.dot(self.w45.T) * (self.__tanh_derivative(self.x34)),   None, clip)
                     dOut23 = np.clip(dOut34.dot(self.w34.T) * (self.__tanh_derivative(self.x23)),   None, clip)
                     dOut12 = np.clip(dOut23.dot(self.w23.T) * (self.__relu_derivative(self.x12)),   None, clip)
 
-                update_layer5 = learning_rate * self.x45.T.dot(dOut56)
                 update_layer4 = learning_rate * self.x34.T.dot(dOut45)
                 update_layer3 = learning_rate * self.x23.T.dot(dOut34)
                 update_layer2 = learning_rate * self.x12.T.dot(dOut23)
                 update_layer1 = learning_rate * self.x01.T.dot(dOut12)
 
-                self.w56 -= update_layer5
                 self.w45 -= update_layer4
                 self.w34 -= update_layer3
                 self.w23 -= update_layer2
                 self.w12 -= update_layer1
+                printProgressBar(i + 1, len(x), prefix = 'Progress:', suffix = 'Complete', length = 50)
 
         print("After " + str(epochs) + " iterations, the total error is " + str(np.sum(error)))
         return np.sum(error)
@@ -100,17 +118,8 @@ class NeuralNetwork:
         self.x12 = self.__relu(np.dot(self.x01, self.w12))
         self.x23 = self.__tanh(np.dot(self.x12, self.w23))
         self.x34 = self.__tanh(np.dot(self.x23, self.w34))
-        self.x45 = self.__tanh(np.dot(self.x34, self.w45))
-        self.x56 = self.__linear(np.dot(self.x45, self.w56))
-        return self.x56
-
-    def compute_output_delta(self, y):
-        dx = (self.x23 - y) * (self.__relu_derivative(self.x23))
-        return dx
-
-    def compute_hidden_layer1_delta(self, dCost):
-        dx = dCost.dot(self.w23.T) * (self.__linear_derivative(self.x12))
-        return dx
+        self.x45 = self.__linear(np.dot(self.x34, self.w45))
+        return self.x45
 
 if __name__ == '__main__':
     model = NeuralNetwork((6400, 1), 7)
