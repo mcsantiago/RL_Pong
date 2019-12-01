@@ -50,8 +50,9 @@ if __name__ == "__main__":
     max_score = 0
     k = 4 # The paper mentions only registering every kth frame
 
-    f = open("specs.csv", "w+")
-
+    f = open("specs.csv", "w")
+    f.write("episode, loss, player_score, max_score, epsilon")
+    f.close()
     while True:
         state = preprocess_frame(env.reset())
 
@@ -80,10 +81,12 @@ if __name__ == "__main__":
         .format(episode, enemy_score, player_score, max_score, agent.epsilon))
         
         error = agent.replay(batch_size) # train the agent by replaying the experiences of the episode
-        f.write("{}, {}, {}, {}, {}".format(episode, error, player_score, max_score, agent.epsilon))
+        agent.forget()
+
+        f = open("specs.csv", "a")
+        f.write("\n{}, {}, {}, {}, {}".format(episode, error, player_score, max_score, agent.epsilon))
+        f.close()
         episode += 1
 
-        if episode % 100 == 0: # save weights every 50th episode (game)
+        if episode % 50 == 0: # save weights every 50th episode (game)
             agent.save(output_dir + "weights_" + '{:04d}'.format(episode) + ".hdf5")
-
-    f.close()

@@ -2,12 +2,12 @@ import random
 import numpy as np
 from collections import deque
 from neural_network import NeuralNetwork 
+import pickle
 
 # reward discount used by Karpathy (cf. https://gist.github.com/karpathy/a4166c7fe253700972fcbc77e4ea32c5)
 def discount_rewards(r, gamma):
     """ take 1D float array of rewards and compute discounted reward """
     r = np.array(r)
-    print(r)
     discounted_r = np.zeros_like(r)
     running_add = 0
     # we go from last reward to first one so we don't have to do exponentiations
@@ -30,7 +30,7 @@ class DQNAgent:
         self.gamma = 0.95
         
         self.epsilon = 1.0
-        self.epsilon_decay = 0.0000036
+        self.epsilon_decay = 0.0000009
         self.epsilon_min = 0.1
         
         self.learning_rate = 0.001
@@ -45,6 +45,9 @@ class DQNAgent:
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
         
+    def forget(self):
+        self.memory.clear()
+
     def act(self, state):
         if self.epsilon > self.epsilon_min:
             self.epsilon -= self.epsilon_decay
@@ -52,24 +55,27 @@ class DQNAgent:
             action = random.randrange(self.action_size) 
             return action
         act_values = self.model.predict(state)
+        print('{}, action: {}'.format(act_values, np.argmax(act_values)))
         return np.argmax(act_values)
     
     def replay(self, batch_size):
-        minibatch = random.sample(self.memory, batch_size)
-        # rewards = [x[2] for x in minibatch] 
-        # d_rewards = discount_rewards(rewards, self.gamma)
+        # minibatch = random.sample(self.memory, batch_size)
+        rewards = [x[2] for x in self.memory] 
+        d_rewards = discount_rewards(rewards, self.gamma)
         # print('d_rewards {}'.format(d_rewards))
 
         x_train=[]
         y_train=[]
-        for state, action, reward, next_state, done in minibatch:
+        i=0
+        for state, action, reward, next_state, done in self.memory:
             target = reward
             if not done:
-                target = reward + self.gamma * np.amax(self.model.predict(next_state)[0])
+                target = d_rewards[i] + self.gamma * np.amax(self.model.predict(next_state)[0])
             target_f = self.model.predict(state)
             target_f[0][action] = target
             x_train.append(state)
             y_train.append(target_f[0])
+            i+=1
 
         error = self.model.fit(x=x_train, y=y_train, epochs=1, clip=1.0, sample_weight=None)
         return error
@@ -79,4 +85,4 @@ class DQNAgent:
         ''' TODO: Load model weights from some input file '''
         
     def save(self, name):
-        ''' TODO: Save model weights to some output file '''
+        pickle.dump(self, open(name, 'wb'))

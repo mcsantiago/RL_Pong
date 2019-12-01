@@ -51,7 +51,7 @@ class NeuralNetwork:
         return x # assumes that x has alreayd been through the relu function
 
     # Below is the training function
-    def fit(self, x, y, clip=None, epochs=1, sample_weight=None, learning_rate = 0.00005):
+    def fit(self, x, y, clip=None, epochs=1, sample_weight=None, learning_rate = 0.000005):
         if len(x) != len(y): 
             raise Exception('Length of X does not match Y')
 
@@ -79,19 +79,14 @@ class NeuralNetwork:
                 update_layer2 = learning_rate * self.x12.T.dot(dOut23)
                 update_layer1 = learning_rate * self.x01.T.dot(dOut12)
 
-                self.w56 += update_layer5
-                self.w45 += update_layer4
-                self.w34 += update_layer3
-                self.w23 += update_layer2
-                self.w12 += update_layer1
-                # print('Hidden Layer 5: max {}, min {}'.format(self.w56.max(), self.w56.min()))
-                # print('Hidden Layer 4: max {}, min {}'.format(self.w45.max(), self.w45.min()))
-                # print('Hidden Layer 3: max {}, min {}'.format(self.w34.max(), self.w34.min()))
-                # print('Hidden Layer 2: max {}, min {}'.format(self.w23.max(), self.w23.min()))
-                # print('Hidden Layer 1: max {}, min {}'.format(self.w12.max(), self.w12.min()))
+                self.w56 -= update_layer5
+                self.w45 -= update_layer4
+                self.w34 -= update_layer3
+                self.w23 -= update_layer2
+                self.w12 -= update_layer1
 
         print("After " + str(epochs) + " iterations, the total error is " + str(np.sum(error)))
-        return error
+        return np.sum(error)
 
     def predict(self, img):
         if img.shape != self.input_shape:
