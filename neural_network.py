@@ -17,12 +17,17 @@ class NeuralNetwork:
         #np.random.seed(1)
         self.input_shape = input_shape
 
-        self.w12 = 2 - np.random.random((6400, 256)) - 1
-        self.w23 = 2 - np.random.random((256, output_layer_size)) - 1
+        self.w12 = 2 - np.random.random((6400, 1024)) - 1.5
+        self.w23 = 2 - np.random.random((1024, 512)) - 1.5
+        self.w34 = 2 - np.random.random((512, 256)) - 1.5
+        self.w45 = 2 - np.random.random((256, output_layer_size)) - 1.5
 
 
     def __sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
+    
+    def __tanh(self, x):
+        return (np.exp(x) - np.exp(-x)) / (np.exp(x) + np.exp(-x))
 
     def __linear(self, x):
         return x
@@ -33,6 +38,9 @@ class NeuralNetwork:
     def __sigmoid_derivative(self, x):
         return x * (1 - x) # assume that x has already been through sigmoid
 
+    def __tanh_derivative(self, x):
+        return 1 - np.power(x, 2) # assume that x has already been through tanh
+
     def __linear_derivative(self, x):
         return 1
 
@@ -42,7 +50,7 @@ class NeuralNetwork:
         return x # assumes that x has alreayd been through the relu function
 
     # Below is the training function
-    def fit(self, x, y, epochs=1, sample_weight=None, learning_rate = 0.005):
+    def fit(self, x, y, epochs=1, sample_weight=None, learning_rate = 0.0001):
         if len(x) != len(y): 
             raise Exception('Length of X does not match Y')
 
@@ -50,16 +58,22 @@ class NeuralNetwork:
             for i in range(len(x)):
                 out = self.forward_pass(x[i])
                 error = 0.5 * np.power((out - y[i]), 2)
-
+                print(out, error)
                 # Backpropagation
-                dOut23 = self.compute_output_delta(y[i])
-                dOut12 = self.compute_hidden_layer1_delta(dOut23)
+                dOut45 = (self.x45 - y[i]) * (self.__linear_derivative(self.x45))
+                dOut34 = dOut45.dot(self.w45.T) * (self.__tanh_derivative(self.x34))
+                dOut23 = dOut34.dot(self.w34.T) * (self.__relu_derivative(self.x23))
+                dOut12 = dOut23.dot(self.w23.T) * (self.__relu_derivative(self.x12))
 
+                update_layer4 = learning_rate * self.x34.T.dot(dOut45)
+                update_layer3 = learning_rate * self.x23.T.dot(dOut34)
                 update_layer2 = learning_rate * self.x12.T.dot(dOut23)
-                update_layer1 = learning_rate * self.x01.dot(dOut12)
+                update_layer1 = learning_rate * self.x01.T.dot(dOut12)
 
-                self.w23 -= update_layer2
-                self.w12 -= update_layer1
+                self.w45 += update_layer4
+                self.w34 += update_layer3
+                self.w23 += update_layer2
+                self.w12 += update_layer1
 
         print("After " + str(epochs) + " iterations, the total error is " + str(np.sum(error)))
         return error
@@ -72,10 +86,16 @@ class NeuralNetwork:
 
     def forward_pass(self, img):
         # pass our inputs through our neural network
-        self.x01 = img
-        self.x12 = self.__relu(np.dot(self.x01.T, self.w12))
-        self.x23 = self.__linear(np.dot(self.x12, self.w23))
-        return self.x23
+        self.x01 = img.T
+        self.x12 = self.__relu(np.dot(self.x01, self.w12))
+        self.x23 = self.__relu(np.dot(self.x12, self.w23))
+        self.x34 = self.__tanh(np.dot(self.x23, self.w34))
+        self.x45 = self.__linear(np.dot(self.x34, self.w45))
+        # self.x56 = self.__relu(np.dot(self.x45, self.w56))
+        # self.x67 = self.__relu(np.dot(self.x56, self.w67))
+        # self.x78 = self.__relu(np.dot(self.x67, self.w78))
+        # self.x89 = self.__tanh(np.dot(self.x78, self.w89))
+        return self.x45
 
     def compute_output_delta(self, y):
         dx = (self.x23 - y) * (self.__relu_derivative(self.x23))
@@ -87,9 +107,7 @@ class NeuralNetwork:
 
 if __name__ == '__main__':
     model = NeuralNetwork((6400, 1), 7)
-    img = np.random.rand(6400, 1)
-    out = model.predict(img)
+    img = np.random.randint(2, size=(6400, 1))
+    print(np.sum(img.T))
 
     model.fit([img], [0.5])
-
-    print('output {}'.format(out))
