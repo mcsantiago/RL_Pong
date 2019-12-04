@@ -4,8 +4,22 @@ from collections import deque
 from keras import backend as K
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten
-from keras.optimizers import Adam
+from keras.optimizers import RMSprop
 
+# reward discount used by Karpathy (cf. https://gist.github.com/karpathy/a4166c7fe253700972fcbc77e4ea32c5)
+def discount_rewards(r, gamma):
+    """ take 1D float array of rewards and compute discounted reward """
+    r = np.array(r)
+    discounted_r = np.zeros_like(r)
+    running_add = 0
+    # we go from last reward to first one so we don't have to do exponentiations
+    for t in reversed(range(0, r.size)):
+        if r[t] != 0: running_add = 0 # if the game ended (in Pong), reset the reward sum
+        running_add = running_add * gamma + r[t] # the point here is to use Horner's method to compute those rewards efficiently
+        discounted_r[t] = running_add
+    discounted_r -= np.mean(discounted_r) #normalizing the result
+    discounted_r /= np.std(discounted_r) #idem
+    return discounted_r
 
 class DQNAgent:
     ''' Keras implementation of the paper '''
@@ -14,29 +28,28 @@ class DQNAgent:
         self.state_size = state_size
         self.action_size = action_size
         
-        self.memory = deque(maxlen=80000)
+        self.memory = deque(maxlen=160000)
         
         self.gamma = 0.95
         
         self.epsilon = 1.0
-        self.epsilon_decay = 0.0000009
+        self.epsilon_decay = 0.000009
         self.epsilon_min = 0.1
         
-        self.learning_rate = 0.001
+        self.learning_rate = 0.0001
         
         self.model = self._build_model()
         
     def _build_model(self):
         model = Sequential()
     
-        model.add(Conv2D(1, kernel_size=3, activation='relu', input_shape=(80, 80, 4)))
-        model.add(Conv2D(16, kernel_size=8, strides=4, activation='relu'))
-        model.add(Conv2D(32, kernel_size=4, strides=2, activation='relu'))
+        model.add(Conv2D(16, kernel_size=8, activation='relu', kernel_initializer='glorot_uniform', input_shape=(80, 80, 4)))
+        model.add(Conv2D(32, kernel_size=4, strides=2, kernel_initializer='glorot_uniform', activation='relu'))
         model.add(Flatten())
-        model.add(Dense(256, activation='relu'))
+        model.add(Dense(256, activation='relu', kernel_initializer='glorot_uniform'))
         model.add(Dense(self.action_size, activation='linear'))
         
-        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        model.compile(loss='mse', optimizer=RMSprop(lr=self.learning_rate))
         
         return model
     
@@ -49,18 +62,25 @@ class DQNAgent:
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
         act_values = self.model.predict(state)
+        print('{}, action: {}'.format(act_values, np.argmax(act_values[0])))
         return np.argmax(act_values[0])
     
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
+        # rewards = [x[2] for x in minibatch]
+        # d_rewards = discount_rewards(rewards, self.gamma)
+        # print(d_rewards)
         
-        for state, action, reward, next_state, done in minibatch:
+        for i, (state, action, reward, next_state, done) in enumerate(minibatch):
             target = reward
             if not done:
                 target = reward + self.gamma * np.amax(self.model.predict(next_state)[0])
+                # print('reward {} target {}'.format(reward, target))
+                # print(target)
             target_f = self.model.predict(state)
-            
-            self.model.fit(state, target - target_f, epochs=1, verbose=0)
+            target_f[0][action] = target
+            # print(target_f[0])
+            self.model.fit(state, target_f, epochs=1, verbose=0)
     
     def load(self, name):
         self.model.load_weights(name)
