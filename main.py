@@ -25,7 +25,7 @@ def preprocess_frame(state):
     return state
 
 if __name__ == "__main__":
-    env = gym.make('Assault-v0')
+    env = gym.make('Pong-v0')
     state_size = env.observation_space
     action_size = env.action_space.n
 
